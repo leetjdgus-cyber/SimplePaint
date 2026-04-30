@@ -4,6 +4,7 @@ namespace SimplePaint
     using System.Drawing;
     using System.Drawing.Drawing2D;
     using System.Drawing.Imaging;
+    using System.IO;
     using System.Drawing.Printing;
     using System.Windows.Forms;
 
@@ -54,6 +55,8 @@ namespace SimplePaint
             trbLine.Maximum = 10;   // 최대값
             trbLine.Value = 2;
             trbLine.ValueChanged += trbLine_ValueChanged;
+            // 파일 저장 버튼 이벤트 연결
+            btnSaveFile.Click += btnSaveFile_Click;
         }
 
         private void PicCanvas_MouseDown(object sender, MouseEventArgs e)
@@ -154,6 +157,45 @@ namespace SimplePaint
         private void trbLine_ValueChanged(object sender, EventArgs e)
         {
             currentLineWidth = trbLine.Value;
+        }
+
+        private void btnSaveFile_Click(object sender, EventArgs e)
+        {
+            using (SaveFileDialog dlg = new SaveFileDialog())
+            {
+                dlg.Title = "이미지로 저장";
+                dlg.Filter = "PNG Image|*.png|JPEG Image|*.jpg;*.jpeg|Bitmap Image|*.bmp";
+                dlg.DefaultExt = "png";
+                dlg.AddExtension = true;
+                dlg.OverwritePrompt = true;
+
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                string path = dlg.FileName;
+                string ext = Path.GetExtension(path).ToLowerInvariant();
+                ImageFormat fmt = ImageFormat.Png;
+                switch (ext)
+                {
+                    case ".png":
+                        fmt = ImageFormat.Png;
+                        break;
+                    case ".jpg":
+                    case ".jpeg":
+                        fmt = ImageFormat.Jpeg;
+                        break;
+                    case ".bmp":
+                        fmt = ImageFormat.Bmp;
+                        break;
+                    default:
+                        // if unknown extension, default to png and append extension
+                        path = path + ".png";
+                        fmt = ImageFormat.Png;
+                        break;
+                }
+
+                // Save the current canvas bitmap to file
+                canvasBitmap.Save(path, fmt);
+            }
         }
         private Rectangle GetRectangle(Point p1, Point p2)
         {
