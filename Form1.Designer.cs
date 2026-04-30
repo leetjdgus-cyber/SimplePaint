@@ -39,8 +39,11 @@
             groupBox3 = new GroupBox();
             trbLine = new TrackBar();
             btnOpenFile = new Button();
+            btnZoomIn = new Button();
+            btnZoomOut = new Button();
             btnSaveFile = new Button();
             picCanvas = new PictureBox();
+            pnlCanvas = new Panel();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
@@ -164,14 +167,22 @@
             btnSaveFile.Text = "저장";
             btnSaveFile.UseVisualStyleBackColor = false;
             // 
+            // pnlCanvas
+            // 
+            pnlCanvas.AutoScroll = true;
+            pnlCanvas.Location = new Point(37, 259);
+            pnlCanvas.Name = "pnlCanvas";
+            pnlCanvas.Size = new Size(712, 421);
+            pnlCanvas.TabIndex = 9;
+            // 
             // picCanvas
             // 
             picCanvas.BackColor = SystemColors.ButtonHighlight;
             picCanvas.BorderStyle = BorderStyle.FixedSingle;
-            picCanvas.Location = new Point(37, 259);
+            picCanvas.Location = new Point(0, 0);
             picCanvas.Name = "picCanvas";
-            picCanvas.Size = new Size(712, 421);
-            picCanvas.TabIndex = 9;
+            picCanvas.SizeMode = PictureBoxSizeMode.AutoSize;
+            picCanvas.TabIndex = 0;
             picCanvas.TabStop = false;
             // 
             // Form1
@@ -179,7 +190,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(805, 707);
-            Controls.Add(picCanvas);
+            Controls.Add(pnlCanvas);
             Controls.Add(btnSaveFile);
             Controls.Add(btnOpenFile);
             Controls.Add(groupBox3);
@@ -189,6 +200,27 @@
             Name = "Form1";
             Text = "Simple Paint v1.0";
             Load += Form1_Load;
+            pnlCanvas.Controls.Add(picCanvas);
+            // 
+            // btnZoomIn
+            // 
+            btnZoomIn.Location = new Point(577, 222);
+            btnZoomIn.Name = "btnZoomIn";
+            btnZoomIn.Size = new Size(83, 30);
+            btnZoomIn.TabIndex = 10;
+            btnZoomIn.Text = "+";
+            btnZoomIn.UseVisualStyleBackColor = true;
+            // 
+            // btnZoomOut
+            // 
+            btnZoomOut.Location = new Point(666, 222);
+            btnZoomOut.Name = "btnZoomOut";
+            btnZoomOut.Size = new Size(83, 30);
+            btnZoomOut.TabIndex = 11;
+            btnZoomOut.Text = "-";
+            btnZoomOut.UseVisualStyleBackColor = true;
+            Controls.Add(btnZoomIn);
+            Controls.Add(btnZoomOut);
             groupBox1.ResumeLayout(false);
             groupBox2.ResumeLayout(false);
             groupBox3.ResumeLayout(false);
@@ -212,6 +244,9 @@
         private TrackBar trbLine;
         private Button btnOpenFile;
         private Button btnSaveFile;
+        private Button btnZoomIn;
+        private Button btnZoomOut;
+        private Panel pnlCanvas;
         private PictureBox picCanvas;
     }
 }

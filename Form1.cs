@@ -22,16 +22,22 @@ namespace SimplePaint
         private ToolType currentTool= ToolType.Line;  // 현재선택된도형
         private Color currentColor = Color.Black;      // 현재색상
         private int currentLineWidth = 2;              // 현재선두께
+        private float zoom = 1.0f;
 
         public Form1()
         {
             InitializeComponent();
 
-            canvasBitmap = new Bitmap(picCanvas.Width, picCanvas.Height);
+            // Create an initially large canvas (use panel size or fallback to original 712x421)
+            int initWidth = Math.Max(712, pnlCanvas.ClientSize.Width);
+            int initHeight = Math.Max(421, pnlCanvas.ClientSize.Height);
+            canvasBitmap = new Bitmap(initWidth, initHeight);
             canvasGraphics = Graphics.FromImage(canvasBitmap);
             canvasGraphics.Clear(Color.White);   // 캔버스를흰색으로초기화
 
-            picCanvas.Image = canvasBitmap;
+            // ensure zoom default and update displayed preview
+            zoom = 1.0f;
+            UpdatePreviewImage();
 
             // 마우스이벤트연결
             picCanvas.MouseDown += PicCanvas_MouseDown;
@@ -57,6 +63,94 @@ namespace SimplePaint
             trbLine.ValueChanged += trbLine_ValueChanged;
             // 파일 저장 버튼 이벤트 연결
             btnSaveFile.Click += btnSaveFile_Click;
+            // 파일 열기 버튼 이벤트 연결
+            btnOpenFile.Click += btnOpenFile_Click;
+            // 줌 버튼 이벤트 연결
+            btnZoomIn.Click += BtnZoomIn_Click;
+            btnZoomOut.Click += BtnZoomOut_Click;
+        }
+
+        private void BtnZoomOut_Click(object sender, EventArgs e)
+        {
+            SetZoom(zoom / 1.2f);
+        }
+
+        private void BtnZoomIn_Click(object sender, EventArgs e)
+        {
+            SetZoom(zoom * 1.2f);
+        }
+
+        private void SetZoom(float newZoom)
+        {
+            zoom = Math.Max(0.1f, Math.Min(10f, newZoom));
+            if (picCanvas.Image != null)
+            {
+                picCanvas.Width = (int)(canvasBitmap.Width * zoom);
+                picCanvas.Height = (int)(canvasBitmap.Height * zoom);
+                // When using AutoSize, need to change SizeMode to Normal to reflect set size
+                picCanvas.SizeMode = PictureBoxSizeMode.Normal;
+                // Create a scaled copy for display
+                UpdatePreviewImage();
+            }
+        }
+
+        private void UpdatePreviewImage()
+        {
+            if (canvasBitmap == null) return;
+            // Dispose previous displayed image if it's not the backing bitmap
+            if (picCanvas.Image != null && !ReferenceEquals(picCanvas.Image, canvasBitmap))
+            {
+                var old = picCanvas.Image;
+                picCanvas.Image = null;
+                old.Dispose();
+            }
+
+            // create scaled image for display
+            Bitmap display = new Bitmap((int)(canvasBitmap.Width * zoom), (int)(canvasBitmap.Height * zoom));
+            using (Graphics g = Graphics.FromImage(display))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.Clear(Color.White);
+                g.DrawImage(canvasBitmap, new Rectangle(0, 0, display.Width, display.Height), new Rectangle(0, 0, canvasBitmap.Width, canvasBitmap.Height), GraphicsUnit.Pixel);
+            }
+            picCanvas.Image = display;
+            picCanvas.Width = display.Width;
+            picCanvas.Height = display.Height;
+        }
+
+        private void btnOpenFile_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog dlg = new OpenFileDialog())
+            {
+                dlg.Title = "이미지 열기";
+                dlg.Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp;*.gif|All Files|*.*";
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                // Load image from file
+                Image img;
+                using (var fs = File.OpenRead(dlg.FileName))
+                {
+                    img = Image.FromStream(fs);
+                }
+
+                // Dispose previous canvas resources
+                canvasGraphics?.Dispose();
+                canvasBitmap?.Dispose();
+
+                // Create new backing bitmap sized to the loaded image
+                canvasBitmap = new Bitmap(img.Width, img.Height);
+                canvasGraphics = Graphics.FromImage(canvasBitmap);
+                canvasGraphics.Clear(Color.White);
+                canvasGraphics.DrawImage(img, 0, 0, img.Width, img.Height);
+                img.Dispose();
+
+                // set initial zoom to fit panel if image larger than panel
+                float zoomX = (float)pnlCanvas.ClientSize.Width / canvasBitmap.Width;
+                float zoomY = (float)pnlCanvas.ClientSize.Height / canvasBitmap.Height;
+                zoom = Math.Min(1.0f, Math.Min(zoomX, zoomY));
+
+                UpdatePreviewImage();
+            }
         }
 
         private void PicCanvas_MouseDown(object sender, MouseEventArgs e)
@@ -82,21 +176,45 @@ namespace SimplePaint
             isDrawing = false;
             endPoint = e.Location;
 
-            using (Pen pen = new Pen(currentColor, currentLineWidth))
+            if (canvasGraphics != null && canvasBitmap != null)
             {
-                DrawShape(canvasGraphics, pen, startPoint, endPoint);
+                // Map control (picturebox) coordinates to bitmap coordinates according to current zoom
+                Point p1 = new Point((int)(startPoint.X / zoom), (int)(startPoint.Y / zoom));
+                Point p2 = new Point((int)(endPoint.X / zoom), (int)(endPoint.Y / zoom));
+
+                using (Pen pen = new Pen(currentColor, Math.Max(1, (int)(currentLineWidth / zoom))))
+                {
+                    // When drawing to the bitmap, use bitmap coordinates
+                    DrawShape(canvasGraphics, pen, p1, p2);
+                }
+
+                // Update displayed (possibly scaled) preview image so the drawn shape is visible on top
+                UpdatePreviewImage();
             }
-            picCanvas.Invalidate();
+            else
+            {
+                picCanvas.Invalidate();
+            }
         }
 
         private void PicCanvas_Paint(object sender, PaintEventArgs e)
         {
             if (!isDrawing) return;
 
-            using (Pen previewPen = new Pen(currentColor, currentLineWidth))
+            using (Pen previewPen = new Pen(currentColor, Math.Max(1, (int)(currentLineWidth / zoom))))
             {
                 previewPen.DashStyle = DashStyle.Dash;
-                DrawShape(e.Graphics, previewPen, startPoint, endPoint);
+
+                // Draw preview scaled to match the displayed image
+                // Map points from control (display) coordinates to bitmap coordinates then back scaled for display
+                Point p1 = new Point((int)(startPoint.X / zoom), (int)(startPoint.Y / zoom));
+                Point p2 = new Point((int)(endPoint.X / zoom), (int)(endPoint.Y / zoom));
+
+                // Now scale back to display coordinates so preview draws on top of displayed image correctly
+                Point dp1 = new Point((int)(p1.X * zoom), (int)(p1.Y * zoom));
+                Point dp2 = new Point((int)(p2.X * zoom), (int)(p2.Y * zoom));
+
+                DrawShape(e.Graphics, previewPen, dp1, dp2);
             }
         }
 
